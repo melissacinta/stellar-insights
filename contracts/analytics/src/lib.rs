@@ -12,6 +12,35 @@ pub struct SnapshotMetadata {
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SnapshotSubmittedEvent {
+    pub epoch: u64,
+    pub hash: BytesN<32>,
+    pub submitter: Address,
+    pub timestamp: u64,
+    pub previous_epoch: u64,
+    pub ledger_sequence: u32,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PauseEvent {
+    pub paused_by: Address,
+    pub reason: String,
+    pub timestamp: u64,
+    pub ledger_sequence: u32,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct UnpauseEvent {
+    pub unpaused_by: Address,
+    pub reason: String,
+    pub timestamp: u64,
+    pub ledger_sequence: u32,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TimelockAction {
     pub action_type: String,
     pub new_admin: Address,
@@ -144,10 +173,11 @@ impl AnalyticsContract {
         }
 
         let timestamp = env.ledger().timestamp();
+        let ledger_sequence = env.ledger().sequence();
         let metadata = SnapshotMetadata {
             epoch,
             timestamp,
-            hash,
+            hash: hash.clone(),
         };
 
         let mut snapshots: Map<u64, SnapshotMetadata> = env
@@ -166,6 +196,18 @@ impl AnalyticsContract {
             .persistent()
             .set(&DataKey::Snapshots, &snapshots);
         env.storage().instance().set(&DataKey::LatestEpoch, &epoch);
+
+        env.events().publish(
+            (symbol_short!("snapshot"), caller.clone()),
+            SnapshotSubmittedEvent {
+                epoch,
+                hash,
+                submitter: caller,
+                timestamp,
+                previous_epoch: latest,
+                ledger_sequence,
+            },
+        );
 
         timestamp
     }
@@ -308,7 +350,7 @@ impl AnalyticsContract {
     /// # Panics
     /// * If contract is not initialized (admin not set)
     /// * If caller is not the admin
-    pub fn pause(env: Env, caller: Address) {
+    pub fn pause(env: Env, caller: Address, reason: String) {
         caller.require_auth();
 
         let admin: Address = env
@@ -322,6 +364,16 @@ impl AnalyticsContract {
         }
 
         env.storage().instance().set(&DataKey::Paused, &true);
+
+        env.events().publish(
+            (symbol_short!("pause"), caller.clone()),
+            PauseEvent {
+                paused_by: caller,
+                reason,
+                timestamp: env.ledger().timestamp(),
+                ledger_sequence: env.ledger().sequence(),
+            },
+        );
     }
 
     /// Unpause the contract
@@ -335,7 +387,7 @@ impl AnalyticsContract {
     /// # Panics
     /// * If contract is not initialized (admin not set)
     /// * If caller is not the admin
-    pub fn unpause(env: Env, caller: Address) {
+    pub fn unpause(env: Env, caller: Address, reason: String) {
         caller.require_auth();
 
         let admin: Address = env
@@ -349,6 +401,16 @@ impl AnalyticsContract {
         }
 
         env.storage().instance().set(&DataKey::Paused, &false);
+
+        env.events().publish(
+            (symbol_short!("unpause"), caller.clone()),
+            UnpauseEvent {
+                unpaused_by: caller,
+                reason,
+                timestamp: env.ledger().timestamp(),
+                ledger_sequence: env.ledger().sequence(),
+            },
+        );
     }
 
     /// Set the governance contract address. Only the admin can set this.

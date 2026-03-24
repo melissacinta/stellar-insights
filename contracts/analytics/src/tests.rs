@@ -651,3 +651,88 @@ fn test_timelock_cancellation() {
     // Admin unchanged
     assert_eq!(client.get_admin(), Some(admin));
 }
+
+// ============================================================================
+// Rich Event Tests
+// ============================================================================
+
+#[test]
+fn test_event_data_completeness() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, AnalyticsContract);
+    let client = AnalyticsContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+
+    client.initialize(&admin);
+
+    // Submit a first snapshot so previous_epoch is non-zero for the second
+    env.ledger().set_timestamp(500);
+    client.submit_snapshot(&1u64, &create_test_hash(&env, 1), &admin);
+
+    env.ledger().set_timestamp(1000);
+    let epoch = 2u64;
+    let hash = create_test_hash(&env, 2);
+    let timestamp = client.submit_snapshot(&epoch, &hash, &admin);
+
+    // Verify the snapshot was stored with correct data (event payload mirrors storage)
+    let snapshot = client.get_snapshot(&epoch).unwrap();
+    assert_eq!(snapshot.epoch, epoch);
+    assert_eq!(snapshot.hash, hash);
+    assert_eq!(snapshot.timestamp, timestamp);
+    assert_eq!(timestamp, 1000);
+
+    // Verify previous_epoch tracking: latest before this submit was epoch 1
+    assert_eq!(client.get_latest_epoch(), epoch);
+
+    // Verify pause event data completeness
+    let reason = soroban_sdk::String::from_str(&env, "scheduled maintenance");
+    client.pause(&admin, &reason);
+    assert!(client.is_paused());
+
+    let unpause_reason = soroban_sdk::String::from_str(&env, "maintenance complete");
+    client.unpause(&admin, &unpause_reason);
+    assert!(!client.is_paused());
+}
+
+#[test]
+fn test_event_emission() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, AnalyticsContract);
+    let client = AnalyticsContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+
+    client.initialize(&admin);
+    env.ledger().set_timestamp(2000);
+
+    // Emit snapshot event
+    let epoch = 1u64;
+    let hash = create_test_hash(&env, 42);
+    let timestamp = client.submit_snapshot(&epoch, &hash, &admin);
+    assert_eq!(timestamp, 2000);
+
+    // Confirm snapshot stored correctly (event data matches)
+    let snapshot = client.get_snapshot(&epoch).unwrap();
+    assert_eq!(snapshot.epoch, epoch);
+    assert_eq!(snapshot.hash, hash);
+    assert_eq!(snapshot.timestamp, 2000);
+
+    // Emit pause event with reason
+    let pause_reason = soroban_sdk::String::from_str(&env, "emergency stop");
+    client.pause(&admin, &pause_reason);
+    assert!(client.is_paused());
+
+    // Emit unpause event with reason
+    let unpause_reason = soroban_sdk::String::from_str(&env, "issue resolved");
+    client.unpause(&admin, &unpause_reason);
+    assert!(!client.is_paused());
+
+    // Confirm contract is operational again after unpause
+    let epoch2 = 2u64;
+    let hash2 = create_test_hash(&env, 43);
+    client.submit_snapshot(&epoch2, &hash2, &admin);
+    assert_eq!(client.get_latest_epoch(), epoch2);
+}

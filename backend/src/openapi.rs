@@ -20,9 +20,9 @@ use utoipa::OpenApi;
         (url = "https://api.stellarinsights.io", description = "Production server")
     ),
     paths(
-        crate::api::anchors_cached::get_anchors,
-        crate::api::corridors_cached::list_corridors,
-        crate::api::corridors_cached::get_corridor_detail,
+        crate::api::anchors::get_anchors,
+        crate::api::corridors::list_corridors,
+        crate::api::corridors::get_corridor_detail,
         crate::api::price_feed::get_price,
         crate::api::price_feed::get_prices,
         crate::api::price_feed::convert_to_usd,
@@ -31,13 +31,13 @@ use utoipa::OpenApi;
     ),
     components(
         schemas(
-            crate::api::anchors_cached::AnchorsResponse,
-            crate::api::anchors_cached::AnchorMetricsResponse,
-            crate::api::corridors_cached::CorridorResponse,
-            crate::api::corridors_cached::CorridorDetailResponse,
-            crate::api::corridors_cached::SuccessRateDataPoint,
-            crate::api::corridors_cached::LatencyDataPoint,
-            crate::api::corridors_cached::LiquidityDataPoint,
+            crate::api::anchors::AnchorsResponse,
+            crate::api::anchors::AnchorMetricsResponse,
+            crate::api::corridors::CorridorResponse,
+            crate::api::corridors::CorridorDetailResponse,
+            crate::api::corridors::SuccessRateDataPoint,
+            crate::api::corridors::LatencyDataPoint,
+            crate::api::corridors::LiquidityDataPoint,
             crate::api::price_feed::PriceResponse,
             crate::api::price_feed::PricesResponse,
             crate::api::price_feed::ConvertResponse,

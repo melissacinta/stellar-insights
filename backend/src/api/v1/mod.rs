@@ -1,6 +1,6 @@
 use crate::api::{
-    account_merges, anchors_cached, cache_stats, corridors_cached, cost_calculator, fee_bump,
-    liquidity_pools, metrics_cached, oauth, price_feed as price_feed_api, webhooks,
+    account_merges, anchors, cache_stats, corridors, cost_calculator, fee_bump,
+    liquidity_pools, metrics, oauth, price_feed as price_feed_api, webhooks,
 };
 use crate::auth_middleware::auth_middleware;
 use crate::cache::CacheManager;
@@ -46,11 +46,11 @@ pub fn routes(
 ) -> Router {
     // 1. Cached routes
     let cached_routes = Router::new()
-        .route("/anchors", get(anchors_cached::get_anchors))
-        .route("/corridors", get(corridors_cached::list_corridors))
+        .route("/anchors", get(anchors::get_anchors))
+        .route("/corridors", get(corridors::list_corridors))
         .route(
             "/corridors/:corridor_key",
-            get(corridors_cached::get_corridor_detail),
+            get(corridors::get_corridor_detail),
         )
         .with_state(cached_state);
 
@@ -110,7 +110,7 @@ pub fn routes(
         .nest("/prices", price_feed_api::routes(price_feed.clone()))
         .nest("/cost-calculator", cost_calculator::routes(price_feed))
         .nest("/cache/stats", cache_stats::routes(cache.clone()))
-        .nest("/metrics", metrics_cached::routes(cache));
+        .nest("/metrics", metrics::routes(cache));
 
     // 6. OAuth routes
     let oauth_routes = oauth::routes(pool);
